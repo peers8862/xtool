@@ -1,0 +1,9 @@
+browser-cookie3==0.20.1
+greenlet==3.3.2
+lz4==4.4.5
+playwright==1.58.0
+pycryptodomex==3.23.0
+pyee==13.0.1
+pyobjc-core==12.1
+pyobjc-framework-Cocoa==12.1
+typing_extensions==4.15.0

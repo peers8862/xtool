@@ -1,0 +1,20 @@
+# virtual environment
+venv_playwright/
+venv/
+.venv/
+
+# data outputs — these are personal, don't commit
+data/
+exports/
+debug_output/
+
+# config contains personal paths and username
+config.py
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
