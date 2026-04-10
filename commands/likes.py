@@ -20,8 +20,8 @@ def _load_existing():
     return [], set()
 
 
-def _newest_timestamp(tweets):
-    for t in tweets:
+def _oldest_timestamp(tweets):
+    for t in reversed(tweets):
         ts = t.get("timestamp")
         if ts:
             return ts
@@ -52,11 +52,11 @@ def make_response_handler(url_map, full_text_map):
 
 def run(limit=None):
     existing, seen_urls = _load_existing()
-    existing_urls = set(seen_urls)  # snapshot of pre-existing URLs — used for stop condition
-    cutoff_ts = _newest_timestamp(existing)
+    existing_urls = set(seen_urls)
+    cutoff_ts = _oldest_timestamp(existing)
 
     if cutoff_ts:
-        print(f"Incremental run — collecting likes newer than {cutoff_ts}")
+        print(f"Continuation run — collecting likes older than {cutoff_ts}")
     else:
         print("No existing data — full scrape")
 
@@ -85,21 +85,17 @@ def run(limit=None):
         while not done:
             tweets    = scrape_visible(page)
             new_count = 0
+            past_existing = any(
+                t["url"] and t["url"] not in existing_urls
+                for t in tweets if t["url"]
+            )
 
             for t in tweets:
                 if not t["url"]:
                     continue
-                # clean stop — reached a tweet we already had BEFORE this run
-                if t["url"] in existing_urls:
-                    if not limit:
-                        print("Reached existing data, stopping.")
-                        done = True
-                    break
-                if cutoff_ts and t.get("timestamp") and t["timestamp"] <= cutoff_ts:
-                    print(f"Reached existing data at {t['timestamp']}, stopping.")
-                    done = True
-                    break
-                if t["url"] in seen_urls:
+                if t["url"] in existing_urls or t["url"] in seen_urls:
+                    continue
+                if cutoff_ts and t.get("timestamp") and t["timestamp"] >= cutoff_ts:
                     continue
                 seen_urls.add(t["url"])
                 dom_snapshots.append(t)
@@ -112,7 +108,7 @@ def run(limit=None):
                 page.evaluate(f"window.scrollBy(0, {SCROLL_STEP})")
                 time.sleep(SCROLL_PAUSE)
 
-                if new_count == 0:
+                if new_count == 0 and past_existing:
                     stall += 1
                     if stall >= 5:
                         print(f"Stall {stall}: waiting {STALL_SLEEP}s...")
@@ -120,7 +116,7 @@ def run(limit=None):
                     if stall >= 8:
                         print("No new tweets after 8 scrolls, stopping.")
                         done = True
-                else:
+                elif new_count > 0:
                     stall = 0
 
             print(f"Collected: {len(dom_snapshots)} new | URL map: {len(url_map)}")
@@ -131,5 +127,5 @@ def run(limit=None):
     new_results = [merge(t, url_map, full_text_map) for t in dom_snapshots]
     print(f"Scraped {len(new_results)} new likes")
 
-    combined = new_results + existing
+    combined = existing + new_results
     _save(combined)
